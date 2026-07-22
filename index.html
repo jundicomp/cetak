@@ -51,23 +51,13 @@ img{display:block;max-width:100%;}
 .crops .br{bottom:-6px;right:-6px;}
 
 /* ---------- print-shop registration mark (decorative) ---------- */
-.reg-mark{width:18px;height:18px;flex-shrink:0;opacity:.85;}
-.reg-mark circle{fill:none;stroke:var(--spot-red);stroke-width:1.4;}
-.reg-mark line{stroke:var(--spot-red);stroke-width:1.4;}
 
 /* ---------- top bar ---------- */
-.topbar{
-  background:var(--ink);color:var(--paper);
-  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.05em;
-  padding:6px 24px;display:flex;justify-content:space-between;
-  overflow:hidden;white-space:nowrap;
-}
-.topbar span{opacity:.75;}
 
 /* ---------- header ---------- */
 header{
   position:sticky;top:0;z-index:40;
-  background:var(--paper);border-bottom:1px solid var(--line);
+  background:var(--spot-red-soft);border-bottom:1px solid var(--line);
 }
 .header-inner{
   max-width:1200px;margin:0 auto;padding:16px 24px;
@@ -113,34 +103,13 @@ header{
   flex-shrink:0;padding:7px 16px;border:1px solid var(--line);background:var(--white);
   border-radius:100px;font-size:12.5px;white-space:nowrap;transition:.15s;
 }
-.chip.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.chip.active{background:var(--spot-red);color:var(--white);border-color:var(--spot-red);}
 .chip:hover:not(.active){border-color:var(--spot-red);background:var(--spot-red-soft);color:var(--spot-red);}
-
-/* ---------- hero ---------- */
-.hero{max-width:1200px;margin:0 auto;padding:56px 24px 40px;position:relative;background-image:radial-gradient(var(--line) 1px, transparent 1px);background-size:16px 16px;background-position:top right;background-repeat:repeat;-webkit-mask-image:linear-gradient(to bottom, black, transparent 85%);mask-image:linear-gradient(to bottom, black, transparent 85%);}
-.hero-eyebrow{
-  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.15em;
-  text-transform:uppercase;color:var(--spot-red);display:flex;align-items:center;gap:8px;margin-bottom:14px;
-}
-.hero h1{
-  font-size:clamp(32px,5vw,56px);line-height:1.02;margin:0 0 18px;font-weight:600;
-  max-width:14ch;letter-spacing:-.01em;
-}
-.hero h1 em{font-style:italic;color:var(--spot-blue);}
-.hero p{max-width:46ch;color:var(--ink-soft);font-size:15.5px;line-height:1.6;margin:0 0 26px;}
-.hero-stats{display:flex;gap:36px;flex-wrap:wrap;}
-.hero-stat b{font-family:'Fraunces',serif;font-size:26px;display:block;}
-.hero-stat span{font-size:11.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
 
 /* ---------- section heading ---------- */
 .section-head{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;}
 .section-head h2{font-size:24px;margin:0;font-weight:600;}
 .section-head .count{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft);}
-
-/* ---------- perforation divider (print/tear-off cue) ---------- */
-.perforation{max-width:1200px;margin:0 auto 32px;padding:0 24px;display:flex;align-items:center;gap:6px;}
-.perforation::before{content:'';flex:1;height:0;border-top:2px dashed var(--line);}
-.perforation .dot{width:5px;height:5px;border-radius:50%;background:var(--line);flex-shrink:0;}
 
 /* ---------- product grid ---------- */
 .grid{
@@ -183,11 +152,12 @@ header{
 .add-btn:hover{background:var(--spot-red);}
 
 /* ---------- footer ---------- */
-footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;background:var(--paper-dim);}
+footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 40px;background:var(--spot-red-soft);}
 .footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:30px;}
+.footer-bottom{background:var(--spot-red);padding:16px 24px;}
+.footer-bottom-inner{max-width:1200px;margin:0 auto;font-size:11.5px;color:#fff;font-family:'JetBrains Mono',monospace;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 .footer-inner h4{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 14px;color:var(--ink-soft);}
 .footer-inner p, .footer-inner a{font-size:13px;color:var(--ink-soft);line-height:2;text-decoration:none;display:block;}
-.footer-bottom{max-width:1200px;margin:30px auto 0;padding-top:20px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 
 /* ---------- overlay & drawer (cart) ---------- */
 .overlay{position:fixed;inset:0;background:rgba(28,27,25,.45);z-index:60;opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -344,7 +314,7 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
   body *{ visibility:hidden; }
   #invoicePrintArea, #invoicePrintArea *{ visibility:visible; }
   #invoicePrintArea{ position:absolute; top:0; left:0; width:100%; border:none; padding:0; }
-  .topbar,.wa-float,.toast,.breadcrumb,.invoice-actions{ display:none !important; }
+  .wa-float,.toast,.breadcrumb,.invoice-actions{ display:none !important; }
 }
 .btn-outline:hover{background:var(--spot-red);color:var(--white);border-color:var(--spot-red);}
 .wa-btn{border-color:#25D366 !important;color:#1B8A4C !important;}
@@ -374,8 +344,6 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
 @media (max-width:768px){
   .searchbox{display:none;}
   .hamburger{display:flex;}
-  .hero p{max-width:none;}
-  .hero-stats{gap:24px;}
   .grid{grid-template-columns:repeat(2,1fr);gap:12px;}
   .modal{grid-template-columns:1fr;}
   .modal-img img{min-height:200px;}
@@ -392,13 +360,11 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
   .ledger-sign{gap:10px;}
   .ledger-sign-box{width:auto;flex:1;}
   .invoice-actions{flex-direction:column;}
-  .topbar{font-size:9.5px;}
 }
 @media (max-width:480px){
   .grid{grid-template-columns:repeat(2,1fr);gap:9px;}
   .card-body{padding:9px 9px 11px;}
   .drawer{width:100%;}
-  .hero{padding:36px 18px 30px;}
   .header-inner{padding:14px 16px;gap:14px;}
   .catbar{padding:0 16px 12px;}
   .section-head{padding:0 16px;}
@@ -408,7 +374,6 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
 </head>
 <body>
 
-<div class="topbar"><span>★ Cetak hari ini, jadi besok — layanan same-day untuk area Jabodetabek</span><span id="topbarPhone">📞 0812-3456-7890</span></div>
 
 <header>
   <div class="header-inner">
@@ -436,23 +401,7 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
 
 <!-- ======================= GALLERY VIEW ======================= -->
 <main id="view-gallery">
-  <section class="hero">
-    <div class="hero-eyebrow">
-      <svg class="reg-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="23"/><line x1="1" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="23" y2="12"/></svg>
-      Est. 2014 · Offset & Digital Printing
-    </div>
-    <h1>Semua kebutuhan cetak, <em>satu tempat.</em></h1>
-    <p>Dari kartu nama sampai banner outdoor — pesan online, kami cetak dengan mesin sendiri, dan kirim ke seluruh Indonesia. Preview desain & invoice langsung dari halaman ini.</p>
-    <div class="hero-stats">
-      <div class="hero-stat"><b>12rb+</b><span>PESANAN SELESAI</span></div>
-      <div class="hero-stat"><b>4.9/5</b><span>RATING PELANGGAN</span></div>
-      <div class="hero-stat"><b>1–2 HARI</b><span>ESTIMASI CETAK</span></div>
-    </div>
-  </section>
-
-  <div class="perforation"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-
-  <div class="section-head">
+  <div class="section-head" style="padding-top:24px">
     <h2>Katalog Produk</h2>
     <span class="count" id="resultCount"></span>
   </div>
@@ -544,11 +493,13 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 30px;b
       <p id="footerContact">halo@cetak.id<br>0812-3456-7890</p>
     </div>
   </div>
-  <div class="footer-bottom">
-    <span id="footerCopyright">© 2026 CETAK.ID — Semua hak dilindungi.</span>
-    <span>Dibuat dengan tinta, kertas, dan kode.</span>
-  </div>
 </footer>
+<div class="footer-bottom">
+  <div class="footer-bottom-inner">
+    <span id="footerCopyright">© 2026 CETAK.ID — Semua hak dilindungi.</span>
+    <span id="footerParentBrand"></span>
+  </div>
+</div>
 
 <button class="wa-float" onclick="contactAdminWA()" title="Chat via WhatsApp">
   <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.44.79 3.06 1.2 4.79 1.2h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.83 14.02c-.24.68-1.4 1.3-1.93 1.38-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36h.56c.18 0 .42-.02.65.5.24.55.81 1.9.88 2.04.07.14.11.31.02.5-.09.19-.14.31-.28.47-.14.16-.3.36-.42.48-.14.14-.29.29-.13.57.17.29.75 1.24 1.61 2 1.1.99 2.03 1.29 2.32 1.44.29.14.46.12.63-.07.17-.19.72-.84.92-1.13.19-.28.38-.24.63-.14.26.09 1.63.77 1.91.91.28.14.47.21.53.33.07.12.07.68-.17 1.36z"/></svg>
@@ -694,7 +645,7 @@ async function loadProducts(){
 }
 let bankAccounts = [];
 let qrisImage = '';
-let biz = { name:'CETAK.ID', address:'Jl. Percetakan Raya No. 88, Jakarta Selatan', city:'Jakarta', phone:'0812-3456-7890', email:'halo@cetak.id', logo:'', stamp:'', owner:'' };
+let biz = { name:'CETAK.ID', address:'Jl. Percetakan Raya No. 88, Jakarta Selatan', city:'Jakarta', phone:'0812-3456-7890', email:'halo@cetak.id', logo:'', stamp:'', owner:'', parent:'' };
 function applyBankAndSettings(ba, st){
   bankAccounts = (ba||[]).map(b=>({...b, active: b.active===true||b.active==='true'||b.active==='TRUE'})).filter(b=>b.active);
   const map = {}; (st||[]).forEach(s=>map[s.key]=s.value);
@@ -708,6 +659,7 @@ function applyBankAndSettings(ba, st){
     logo: map.logo_image || '',
     stamp: map.stamp_image || '',
     owner: map.biz_owner || '',
+    parent: map.biz_parent || '',
   };
   applyBusinessBranding();
 }
@@ -734,10 +686,10 @@ function applyBusinessBranding(){
   const mark2 = document.getElementById('footerLogoMark'); if(mark2) mark2.innerHTML = logoHtml;
   const t1 = document.getElementById('headerLogoText'); if(t1) t1.innerHTML = `${biz.name}<small>Percetakan Digital</small>`;
   const t2 = document.getElementById('footerLogoText'); if(t2) t2.textContent = biz.name;
-  const tb = document.getElementById('topbarPhone'); if(tb) tb.textContent = `📞 ${biz.phone}`;
   const fa = document.getElementById('footerAddress'); if(fa) fa.textContent = biz.address;
   const fc = document.getElementById('footerContact'); if(fc) fc.innerHTML = `${biz.email}<br>${biz.phone}`;
   const fy = document.getElementById('footerCopyright'); if(fy) fy.textContent = `© ${new Date().getFullYear()} ${biz.name} — Semua hak dilindungi.`;
+  const fp = document.getElementById('footerParentBrand'); if(fp) fp.textContent = biz.parent ? `Sebuah brand dari ${biz.parent}` : 'Dibuat dengan tinta, kertas, dan kode.';
   const pickup = SHIPPING.find(s=>s.id==='pickup'); if(pickup) pickup.sub = biz.address;
   applyBrandColorFromLogo();
 }
@@ -1127,7 +1079,7 @@ async function syncOrderToAdmin(order){
       note: order.note||'',
       shippingMethod: order.ship.title,
       shippingCost: order.ship.price,
-      paymentMethod: order.pay.title,
+      paymentMethod: order.pay.title + (order.bank ? ` (${order.bank.bankName} ${order.bank.accountNumber} a.n. ${order.bank.accountHolder})` : ''),
       subtotal: order.sub,
       total: order.total,
       status: 'Diproses',
@@ -1142,6 +1094,15 @@ async function syncOrderToAdmin(order){
 }
 
 const numFmt = n => Math.round(n||0).toLocaleString('id-ID');
+/* always show which bank/account to pay to for transfer orders — falls back
+   to listing the currently active bank accounts if the order itself somehow
+   didn't capture one, so customers are never left guessing. */
+function bankInfoText(o){
+  if(!o.pay || o.pay.id!=='transfer') return '';
+  if(o.bank) return ` (${o.bank.bankName} ${o.bank.accountNumber} a.n. ${o.bank.accountHolder})`;
+  if(bankAccounts.length) return ' (' + bankAccounts.map(b=>`${b.bankName} ${b.accountNumber} a.n. ${b.accountHolder}`).join(' / ') + ')';
+  return '';
+}
 function renderInvoice(){
   const o=lastOrder;
   const logoHtml = biz.logo
@@ -1194,7 +1155,7 @@ function renderInvoice(){
     <div class="ledger-bottom">
       <div class="ledger-info">
         <div><b>No. Invoice:</b> ${o.invNo}</div>
-        <div><b>Pembayaran:</b> ${o.pay.title}${o.bank?` (${o.bank.bankName} ${o.bank.accountNumber} a.n. ${o.bank.accountHolder})`:''}</div>
+        <div><b>Pembayaran:</b> ${o.pay.title}${bankInfoText(o)}</div>
         <div><b>Pengiriman:</b> ${o.ship.title}</div>
         ${o.note?`<div><b>Catatan:</b> ${o.note}</div>`:''}
       </div>
@@ -1249,7 +1210,7 @@ function contactAdminWA(){
 }
 function buildInvoiceWaMessage(o){
   const itemLines = o.items.map(it=>`- ${it.qty}x ${it.name} (${it.spec})${it.note?` [Catatan: ${it.note}]`:''} = ${rupiah(it.price*it.qty)}`).join('\n');
-  return `Halo ${o.name}, berikut rincian invoice pesanan Anda dari ${biz.name}:\n\nNo. Invoice: ${o.invNo}\nTanggal: ${o.date.toLocaleDateString('id-ID')}\n\nRincian pesanan:\n${itemLines}\n\nOngkos Kirim: ${o.ship.title} - ${rupiah(o.ship.price)}\nTotal: ${rupiah(o.total)}\nPembayaran: ${o.pay.title}\n\nTerima kasih.`;
+  return `Halo ${o.name}, berikut rincian invoice pesanan Anda dari ${biz.name}:\n\nNo. Invoice: ${o.invNo}\nTanggal: ${o.date.toLocaleDateString('id-ID')}\n\nRincian pesanan:\n${itemLines}\n\nOngkos Kirim: ${o.ship.title} - ${rupiah(o.ship.price)}\nTotal: ${rupiah(o.total)}\nPembayaran: ${o.pay.title}${bankInfoText(o)}\n\nTerima kasih.`;
 }
 /* html2canvas frequently throws when it tries to read cssRules from a
    cross-origin stylesheet (e.g. Google Fonts) — browsers block that for
