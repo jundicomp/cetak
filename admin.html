@@ -275,8 +275,8 @@ table thead th.dt-th-sort:hover{color:var(--ink);}
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
       <div style="display:flex;align-items:center;gap:10px;">
-        <div class="sb-mark">C</div>
-        <div class="sb-brand-text">CETAK.ID<small>Admin Panel</small></div>
+        <div class="sb-mark" id="sbMark">C</div>
+        <div class="sb-brand-text" id="sbBrandText">CETAK.ID<small>Admin Panel</small></div>
       </div>
       <button class="sb-close" onclick="toggleSidebar(false)">×</button>
     </div>
@@ -485,6 +485,7 @@ async function loadAll(){
   if(maxId>=uid) uid=maxId+1;
   const el=document.getElementById('syncStatus');
   if(el) el.innerHTML = offline ? '🟠 Gagal konek Sheets (cek URL)' : '🟢 Tersambung ke Google Sheets';
+  applyAdminBranding();
 }
 async function refreshCurrent(){
   await loadAll();
@@ -1671,6 +1672,14 @@ async function submitJob(e, invoiceNo){
    PAGE: DETAIL USAHA
    ============================================================ */
 function settingVal(key, def=''){ return (settings.find(s=>s.key===key)||{}).value ?? def; }
+function applyAdminBranding(){
+  const name = settingVal('biz_name','CETAK.ID');
+  const logo = settingVal('logo_image','');
+  const mark = document.getElementById('sbMark');
+  const text = document.getElementById('sbBrandText');
+  if(mark) mark.innerHTML = logo ? `<img src="${logo}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : name.charAt(0).toUpperCase();
+  if(text) text.innerHTML = `${name}<small>Admin Panel</small>`;
+}
 function renderUsaha(){
   document.getElementById('pageContent').innerHTML=`
     <div class="card">
@@ -1728,6 +1737,7 @@ async function submitUsaha(e){
   upsertSetting('biz_email', document.getElementById('uEmail').value.trim());
   upsertSetting('biz_owner', document.getElementById('uOwner').value.trim());
   await saveKey(KEYS.settings, settings);
+  applyAdminBranding();
   showToast('Identitas usaha tersimpan & tersinkron ke toko');
 }
 async function saveImageSetting(key, hiddenId){
@@ -1735,6 +1745,7 @@ async function saveImageSetting(key, hiddenId){
   if(!val){showToast('Upload gambar dulu');return;}
   upsertSetting(key, val);
   await saveKey(KEYS.settings, settings);
+  applyAdminBranding();
   showToast('Gambar tersimpan & tersinkron ke toko');
 }
 

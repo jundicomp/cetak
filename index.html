@@ -739,6 +739,57 @@ function applyBusinessBranding(){
   const fc = document.getElementById('footerContact'); if(fc) fc.innerHTML = `${biz.email}<br>${biz.phone}`;
   const fy = document.getElementById('footerCopyright'); if(fy) fy.textContent = `© ${new Date().getFullYear()} ${biz.name} — Semua hak dilindungi.`;
   const pickup = SHIPPING.find(s=>s.id==='pickup'); if(pickup) pickup.sub = biz.address;
+  applyBrandColorFromLogo();
+}
+
+/* ---- pull the site's accent color from the uploaded logo, so the storefront
+   visually matches the shop's own brand instead of a fixed orange ---- */
+let _lastExtractedLogo = null;
+function quantizeChannel(v){ return Math.round(v/24)*24; }
+function extractDominantColor(imgUrl){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = () => {
+      try{
+        const size = 48;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0,0,size,size).data;
+        const buckets = {};
+        for(let i=0;i<data.length;i+=4){
+          const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+          if(a<100) continue;
+          const max=Math.max(r,g,b), min=Math.min(r,g,b);
+          if(max>235 && min>200) continue; // near-white background
+          if(max<25) continue;              // near-black
+          if(max-min<28) continue;          // low saturation / gray — skip, not a "brand color"
+          const key = quantizeChannel(r)+','+quantizeChannel(g)+','+quantizeChannel(b);
+          if(!buckets[key]) buckets[key]={r:0,g:0,b:0,n:0};
+          buckets[key].r+=r; buckets[key].g+=g; buckets[key].b+=b; buckets[key].n++;
+        }
+        let best=null;
+        Object.values(buckets).forEach(bk=>{ if(!best||bk.n>best.n) best=bk; });
+        if(!best){ resolve(null); return; }
+        resolve({ r:Math.round(best.r/best.n), g:Math.round(best.g/best.n), b:Math.round(best.b/best.n) });
+      }catch(e){ console.error('Gagal mengekstrak warna logo', e); resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imgUrl;
+  });
+}
+function mixWithWhite({r,g,b}, ratio){
+  return `rgb(${Math.round(r*(1-ratio)+255*ratio)},${Math.round(g*(1-ratio)+255*ratio)},${Math.round(b*(1-ratio)+255*ratio)})`;
+}
+async function applyBrandColorFromLogo(){
+  if(!biz.logo){ _lastExtractedLogo=null; return; } // no logo uploaded yet — keep the default orange
+  if(biz.logo === _lastExtractedLogo) return; // already applied, skip re-extracting on every poll
+  const color = await extractDominantColor(biz.logo);
+  if(!color) return;
+  _lastExtractedLogo = biz.logo;
+  document.documentElement.style.setProperty('--spot-red', `rgb(${color.r},${color.g},${color.b})`);
+  document.documentElement.style.setProperty('--spot-red-soft', mixWithWhite(color, 0.88));
 }
 
 /* ============ HELPERS ============ */
