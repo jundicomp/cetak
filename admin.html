@@ -334,7 +334,7 @@ function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOSt
    source of truth shared by both the admin panel and the storefront page. ---- */
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwWGgMqGHvCfIwK2gQzSG1KA3NH9p5uEXZ9DLGcPs23OCyHTEHB5qslYrFvoU_Y0q4--Q/exec';
 const hasStorage = true;
-const KEYS = { products:'products', orders:'orders', sales:'sales', purchases:'purchases', expenses:'expenses', bankaccounts:'bankaccounts', settings:'settings', customers:'customers', jobs:'jobs' };
+const KEYS = { products:'products', orders:'orders', sales:'sales', purchases:'purchases', expenses:'expenses', bankaccounts:'bankaccounts', settings:'settings', customers:'customers', jobs:'jobs', hpp:'hpp' };
 
 const FALLBACK_PRODUCTS = [
   {id:nextId(),name:"Kartu Nama Premium Art Carton 260gsm",cat:"Kartu Nama",price:45000,cost:27000,unit:"box",stock:84,seed:"biz1",desc:"Kartu nama full color dua sisi, art carton 260gsm."},
@@ -378,8 +378,9 @@ const FALLBACK_SETTINGS = [
 ];
 const FALLBACK_CUSTOMERS = [];
 const FALLBACK_JOBS = [];
+const HPP_CATS = ['Bahan Baku','Tenaga Kerja','Cetak / Mesin','Finishing','Desain','Pengiriman','Overhead','Lainnya'];
 
-let products = [], orders = [], sales = [], purchases = [], expenses = [], bankAccounts = [], settings = [], customers = [], jobs = [];
+let products = [], orders = [], sales = [], purchases = [], expenses = [], bankAccounts = [], settings = [], customers = [], jobs = [], hppItems = [];
 
 /* GET {sheet} from the Google Sheet via Apps Script */
 /* ---- lazy-load heavy libraries only when actually needed (export/WA/PDF
@@ -450,15 +451,15 @@ async function storageGetAllSafe(){
 }
 async function loadAll(){
   const bundle = await storageGetAllSafe();
-  let pr, or, sl, pu, ex, ba, st, cu, jb;
+  let pr, or, sl, pu, ex, ba, st, cu, jb, hp;
   if(bundle){
-    ({products:pr, orders:or, sales:sl, purchases:pu, expenses:ex, bankaccounts:ba, settings:st, customers:cu, jobs:jb} = bundle);
+    ({products:pr, orders:or, sales:sl, purchases:pu, expenses:ex, bankaccounts:ba, settings:st, customers:cu, jobs:jb, hpp:hp} = bundle);
   } else {
-    [pr, or, sl, pu, ex, ba, st, cu, jb] = await Promise.all([
+    [pr, or, sl, pu, ex, ba, st, cu, jb, hp] = await Promise.all([
       storageGetSafe(KEYS.products), storageGetSafe(KEYS.orders), storageGetSafe(KEYS.sales),
       storageGetSafe(KEYS.purchases), storageGetSafe(KEYS.expenses),
       storageGetSafe(KEYS.bankaccounts), storageGetSafe(KEYS.settings), storageGetSafe(KEYS.customers),
-      storageGetSafe(KEYS.jobs),
+      storageGetSafe(KEYS.jobs), storageGetSafe(KEYS.hpp),
     ]);
   }
   const offline = pr===null && sl===null && pu===null && ex===null;
@@ -471,6 +472,7 @@ async function loadAll(){
   settings = st || FALLBACK_SETTINGS;
   customers = cu || FALLBACK_CUSTOMERS;
   jobs = jb || FALLBACK_JOBS;
+  hppItems = (hp || []).map(h=>({...h, qty:Number(h.qty)||0, price:Number(h.price)||0, total:Number(h.total)||0}));
   if(offline && (!pr)){
     // Google Sheet belum terisi / URL belum benar → tetap jalan dengan data contoh lokal
     await Promise.allSettled([
@@ -480,7 +482,7 @@ async function loadAll(){
       saveKey(KEYS.customers, customers), saveKey(KEYS.jobs, jobs),
     ]);
   }
-  const allIds=[...products,...sales,...purchases,...expenses,...bankAccounts,...customers].map(x=>x.id||0);
+  const allIds=[...products,...sales,...purchases,...expenses,...bankAccounts,...customers,...hppItems].map(x=>x.id||0);
   const maxId=allIds.length?Math.max(...allIds):0;
   if(maxId>=uid) uid=maxId+1;
   const el=document.getElementById('syncStatus');
@@ -505,6 +507,7 @@ const NAV = [
   ]},
   {group:"Transaksi", items:[
     {id:'penjualan', label:'Rekap Penjualan', icon:'cart'},
+    {id:'hpp', label:'Input HPP', icon:'calc'},
     {id:'pembelian', label:'Form Pembelian', icon:'truck'},
     {id:'biaya', label:'Form Biaya-biaya', icon:'receipt'},
     {id:'invoice', label:'Invoice', icon:'receipt'},
@@ -519,6 +522,7 @@ const NAV = [
   ]},
   {group:"Laporan", items:[
     {id:'labarugi', label:'Laba Rugi', icon:'chart'},
+    {id:'laporanhpp', label:'Laporan HPP', icon:'calc'},
   ]},
 ];
 const ICONS = {
@@ -531,6 +535,7 @@ const ICONS = {
   wallet:'<path d="M21 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z"/><path d="M17 3H5a2 2 0 0 0-2 2v2"/><circle cx="17" cy="13" r="1.5"/>',
   store:'<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/><path d="M4 9v10h16V9"/><path d="M9 21v-6h6v6"/>',
   user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  calc:'<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="12" y1="11" x2="12.01" y2="11"/><line x1="16" y1="11" x2="16.01" y2="11"/><line x1="8" y1="15" x2="8.01" y2="15"/><line x1="12" y1="15" x2="12.01" y2="15"/><line x1="16" y1="15" x2="16.01" y2="15"/>',
   clipboard:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3h6v3H9z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/>',
 };
 const PAGE_META = {
@@ -544,6 +549,8 @@ const PAGE_META = {
   usaha:{title:'Detail Usaha', sub:'Identitas toko yang tampil di invoice & halaman toko'},
   pembayaran:{title:'Pengaturan Pembayaran', sub:'Rekening bank, QRIS & format nomor invoice'},
   labarugi:{title:'Laporan Laba Rugi', sub:'Per produk & keseluruhan usaha'},
+  hpp:{title:'Input HPP', sub:'Rincian harga pokok untuk tiap produk yang terjual'},
+  laporanhpp:{title:'Laporan HPP', sub:'Pendapatan vs HPP per penjualan, per produk & per kategori biaya'},
   pekerjaan:{title:'Monitoring Pekerjaan', sub:'Status produksi tiap invoice, dari order masuk sampai selesai'},
 };
 let currentPage='dashboard';
@@ -588,7 +595,16 @@ function showToast(msg){
    ============================================================ */
 function productById(id){return products.find(p=>p.id==id);}
 function totalSalesRevenue(){return sales.reduce((s,x)=>s+x.qty*x.price,0);}
-function totalHPP(){return sales.reduce((s,x)=>{const p=productById(x.productId);return s+(p?p.cost*x.qty:0);},0);}
+/* HPP aktual: kalau penjualan punya rincian di halaman Input HPP, pakai jumlah rincian itu.
+   Kalau belum ada rincian, jatuh ke estimasi (harga pokok master produk x qty). */
+function hppItemsOf(saleId){return hppItems.filter(h=>h.saleId==saleId);}
+function saleHPP(s){
+  const it=hppItemsOf(s.id);
+  if(it.length) return {value:it.reduce((a,h)=>a+(Number(h.total)||0),0), mode:'rinci', n:it.length};
+  const p=productById(s.productId);
+  return {value:p?p.cost*s.qty:0, mode:'estimasi', n:0};
+}
+function totalHPP(){return sales.reduce((s,x)=>s+saleHPP(x).value,0);}
 function totalPurchases(){return purchases.reduce((s,x)=>s+x.qty*x.price,0);}
 function totalExpenses(){return expenses.reduce((s,x)=>s+x.amount,0);}
 function perProductReport(){
@@ -596,7 +612,7 @@ function perProductReport(){
     const pSales = sales.filter(s=>s.productId==p.id);
     const qty = pSales.reduce((s,x)=>s+x.qty,0);
     const revenue = pSales.reduce((s,x)=>s+x.qty*x.price,0);
-    const hpp = qty*p.cost;
+    const hpp = pSales.reduce((a,x)=>a+saleHPP(x).value,0);
     const laba = revenue-hpp;
     const margin = revenue>0 ? (laba/revenue*100) : 0;
     return {p,qty,revenue,hpp,laba,margin};
@@ -947,7 +963,7 @@ function renderSaleTable(){
     filename:'rekap-penjualan',
     title:'Rekap Penjualan — CETAK.ID',
     defaultSort:'date', 
-    data: sales.map(s=>({...s, _sortDate:new Date(s.date).getTime(), _total:s.qty*s.price, _productName:(productById(s.productId)||{}).name||'(produk dihapus)'})),
+    data: sales.map(s=>({...s, _sortDate:new Date(s.date).getTime(), _total:s.qty*s.price, _productName:(productById(s.productId)||{}).name||'(produk dihapus)', _hpp:saleHPP(s).value, _hppMode:saleHPP(s).mode})),
     columns:[
       {key:'_sortDate', label:'Tanggal', render:r=>fmtDate(r.date), searchValue:r=>fmtDate(r.date)},
       {key:'invoiceNo', label:'No. Invoice', render:r=>r.invoiceNo?`<span class="pill green" style="cursor:pointer" onclick="goToInvoiceAndView('${r.invoiceNo}')">${r.invoiceNo}</span>`:'-'},
@@ -956,7 +972,8 @@ function renderSaleTable(){
       {key:'qty', label:'Qty', align:'right'},
       {key:'price', label:'Harga', align:'right', render:r=>rupiah(r.price), exportValue:r=>r.price},
       {key:'_total', label:'Total', align:'right', render:r=>`<b>${rupiah(r._total)}</b>`, exportValue:r=>r._total},
-      {key:'aksi', label:'', sortable:false, exportSkip:true, render:r=>`<button class="btn-danger-text" onclick="deleteSale(${r.id})">Hapus</button>`},
+      {key:'_hpp', label:'HPP', align:'right', render:r=>r._hppMode==='rinci'?rupiah(r._hpp):`<span style="color:var(--ink-soft)">~${rupiah(r._hpp)}</span>`, exportValue:r=>r._hpp},
+      {key:'aksi', label:'', sortable:false, exportSkip:true, render:r=>`<button class="btn btn-outline" style="padding:6px 12px;font-size:13px" onclick="openHppModal(${r.id})">${r._hppMode==='rinci'?'Edit HPP':'+ HPP'}</button> <button class="btn-danger-text" onclick="deleteSale(${r.id})">Hapus</button>`},
     ],
   });
 }
@@ -964,6 +981,7 @@ async function deleteSale(id){
   if(!confirm('Hapus catatan penjualan ini? Ini hanya menghapus catatannya di sini, tidak mengubah invoice terkait.'))return;
   sales=sales.filter(s=>s.id!==id);
   await saveKey(KEYS.sales, sales);
+  if(hppItemsOf(id).length){ hppItems=hppItems.filter(h=>h.saleId!=id); await saveKey(KEYS.hpp, hppItems); }
   renderPenjualan();
   showToast('Data penjualan dihapus');
 }
@@ -1692,6 +1710,9 @@ function renderUsaha(){
           <div class="field"><label>Telepon / WhatsApp</label><input type="text" id="uPhone" value="${settingVal('biz_phone','0812-3456-7890')}"></div>
           <div class="field"><label>Email</label><input type="text" id="uEmail" value="${settingVal('biz_email','halo@cetak.id')}"></div>
           <div class="field"><label>Nama Penanggung Jawab</label><input type="text" id="uOwner" value="${settingVal('biz_owner','')}" placeholder="Tampil di kolom tanda tangan invoice"></div>
+          <div class="field full"><label>Brand Dari (Perusahaan Induk)</label><input type="text" id="uParent" value="${settingVal('biz_parent','')}" placeholder="Contoh: JUNDEZAIN CORP — kosongkan jika tidak perlu">
+            <div class="hint">Kalau diisi, tampil sebagai "Sebuah brand dari ..." di footer halaman toko.</div>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary">Simpan Identitas Usaha</button>
       </form>
@@ -1736,6 +1757,7 @@ async function submitUsaha(e){
   upsertSetting('biz_phone', document.getElementById('uPhone').value.trim());
   upsertSetting('biz_email', document.getElementById('uEmail').value.trim());
   upsertSetting('biz_owner', document.getElementById('uOwner').value.trim());
+  upsertSetting('biz_parent', document.getElementById('uParent').value.trim());
   await saveKey(KEYS.settings, settings);
   applyAdminBranding();
   showToast('Identitas usaha tersimpan & tersinkron ke toko');
@@ -1955,10 +1977,237 @@ function renderLabaRugi(){
   });
 }
 
+
+/* ============================================================
+   PAGE: INPUT HPP  +  LAPORAN HPP
+   ============================================================ */
+function saleLabel(s){
+  const p=productById(s.productId);
+  return `${fmtDate(s.date)} · ${s.invoiceNo||'tanpa invoice'} · ${p?p.name:'(produk dihapus)'} · ${s.qty} ${p?p.unit:''}`;
+}
+function renderHpp(){
+  const rinciSales = sales.filter(s=>hppItemsOf(s.id).length).length;
+  const totalRinci = hppItems.reduce((a,h)=>a+h.total,0);
+  document.getElementById('pageContent').innerHTML=`
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">Penjualan Sudah Ada HPP</div><div class="val">${rinciSales} / ${sales.length}</div></div>
+      <div class="stat-card"><div class="lbl">Total Item HPP</div><div class="val">${hppItems.length}</div></div>
+      <div class="stat-card"><div class="lbl">Total HPP Rinci</div><div class="val">${rupiah(totalRinci)}</div></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+      <button class="btn btn-primary" onclick="openHppModal()">+ Input HPP</button>
+    </div>
+    <div class="card">
+      <h3>Rincian HPP <span class="tag">${hppItems.length} ITEM</span></h3>
+      <div class="hint" style="margin-bottom:14px">Pilih penjualan yang sudah terjadi, lalu isi komponen biayanya (bahan, tenaga kerja, finishing, dst). Penjualan yang belum punya rincian dihitung memakai estimasi dari harga pokok master produk. Bisa juga dibuka langsung lewat tombol “+ HPP” di Rekap Penjualan.</div>
+      <div id="dtHpp"></div>
+    </div>`;
+  renderDataTable({
+    containerId:'dtHpp',
+    filename:'rincian-hpp',
+    title:'Rincian HPP — CETAK.ID',
+    defaultSort:'_sortDate',
+    data: hppItems.map(h=>{
+      const s=sales.find(x=>x.id==h.saleId);
+      const p=productById(s?s.productId:h.productId);
+      return {...h, _sortDate:new Date(h.date).getTime(), _product:p?p.name:'(produk dihapus)'};
+    }),
+    columns:[
+      {key:'_sortDate', label:'Tanggal', render:r=>fmtDate(r.date), searchValue:r=>fmtDate(r.date)},
+      {key:'invoiceNo', label:'No. Invoice', render:r=>r.invoiceNo||'-'},
+      {key:'_product', label:'Produk Terjual'},
+      {key:'desc', label:'Uraian'},
+      {key:'cat', label:'Kategori', render:r=>`<span class="pill gray">${r.cat}</span>`},
+      {key:'qty', label:'Jumlah', align:'right', render:r=>`${r.qty} ${r.unit||''}`, exportValue:r=>r.qty},
+      {key:'price', label:'Harga', align:'right', render:r=>rupiah(r.price), exportValue:r=>r.price},
+      {key:'total', label:'Total', align:'right', render:r=>`<b>${rupiah(r.total)}</b>`, exportValue:r=>r.total},
+      {key:'aksi', label:'', sortable:false, exportSkip:true, render:r=>`<button class="btn btn-outline" style="padding:6px 12px;font-size:13px" onclick="openHppModal(${r.saleId},${r.id})">Edit</button> <button class="btn-danger-text" onclick="deleteHpp(${r.id})">Hapus</button>`},
+    ],
+  });
+}
+function hppSaleInfo(){
+  const sel=document.getElementById('hpSale'); const box=document.getElementById('hpInfo');
+  if(!sel||!box) return;
+  const s=sales.find(x=>x.id==sel.value);
+  if(!s){ box.innerHTML=''; return; }
+  const rev=s.qty*s.price, h=saleHPP(s), laba=rev-h.value;
+  box.innerHTML=`Pendapatan <b>${rupiah(rev)}</b> · HPP saat ini <b>${rupiah(h.value)}</b> ${h.mode==='rinci'?'('+h.n+' item)':'(estimasi)'} · Laba kotor <b style="color:${laba>=0?'var(--green)':'var(--red)'}">${rupiah(laba)}</b>`;
+}
+function hppCalcTotal(){
+  const q=parseFloat(document.getElementById('hpQty').value)||0;
+  const pr=parseFloat(document.getElementById('hpPrice').value)||0;
+  document.getElementById('hpTotal').value = rupiah(q*pr);
+}
+function openHppModal(saleId, hppId){
+  if(!sales.length){ showToast('Belum ada penjualan untuk diberi HPP'); return; }
+  const h = hppId ? hppItems.find(x=>x.id==hppId) : null;
+  const sid = h ? h.saleId : saleId;
+  const list=[...sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  openModal(h?'Edit Item HPP':'Input HPP Produk Terjual', `
+    <form id="hppForm" onsubmit="event.preventDefault();saveHpp(false)">
+      <div class="form-grid">
+        <div class="field full"><label>Produk yang Terjual</label>
+          <select id="hpSale" onchange="hppSaleInfo()" required ${h?'disabled':''}>
+            <option value="">— pilih penjualan —</option>
+            ${list.map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${saleLabel(s)}</option>`).join('')}
+          </select>
+          <div class="hint" id="hpInfo" style="margin-top:8px"></div>
+        </div>
+        <div class="field full"><label>Uraian</label><input type="text" id="hpDesc" placeholder="Contoh: Art Carton 260gsm 2 rim" value="${h?String(h.desc).replace(/"/g,'&quot;'):''}" required></div>
+        <div class="field"><label>Kategori</label><select id="hpCat">${HPP_CATS.map(c=>`<option ${h&&h.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
+        <div class="field"><label>Satuan</label><input type="text" id="hpUnit" placeholder="rim / jam / lembar" value="${h?h.unit||'':''}" required></div>
+        <div class="field"><label>Jumlah</label><input type="number" id="hpQty" min="0.01" step="0.01" value="${h?h.qty:1}" oninput="hppCalcTotal()" required></div>
+        <div class="field"><label>Harga (Rp)</label><input type="number" id="hpPrice" min="0" value="${h?h.price:''}" oninput="hppCalcTotal()" required></div>
+        <div class="field full"><label>Total</label><input type="text" id="hpTotal" readonly style="background:#F5F5F5;font-weight:700"></div>
+      </div>
+      <input type="hidden" id="hpEditId" value="${h?h.id:''}">
+    </form>
+  `, `
+    <button class="btn btn-outline" onclick="closeGenericModal()">Batal</button>
+    ${h?'':`<button class="btn btn-outline" onclick="saveHpp(true)">Simpan &amp; Tambah Lagi</button>`}
+    <button class="btn btn-primary" onclick="saveHpp(false)">Simpan</button>
+  `);
+  hppCalcTotal(); hppSaleInfo();
+}
+async function saveHpp(again){
+  const form=document.getElementById('hppForm');
+  if(!form.reportValidity()) return;
+  const editId=document.getElementById('hpEditId').value;
+  const saleId=parseInt(document.getElementById('hpSale').value)||(editId?hppItems.find(x=>x.id==editId).saleId:0);
+  const s=sales.find(x=>x.id==saleId);
+  if(!s){ showToast('Pilih produk yang terjual dulu'); return; }
+  const qty=parseFloat(document.getElementById('hpQty').value)||0;
+  const price=parseFloat(document.getElementById('hpPrice').value)||0;
+  const row={
+    id: editId?parseInt(editId):nextId(),
+    saleId:s.id, invoiceNo:s.invoiceNo||'', date:s.date, productId:s.productId,
+    desc:document.getElementById('hpDesc').value.trim(),
+    cat:document.getElementById('hpCat').value,
+    qty, unit:document.getElementById('hpUnit').value.trim(), price, total:qty*price,
+  };
+  if(editId){
+    hppItems=hppItems.map(h=>h.id==row.id?row:h);
+    await saveKey(KEYS.hpp, hppItems);
+  } else {
+    hppItems.push(row);
+    await appendKey(KEYS.hpp, [row]);
+  }
+  showToast(editId?'Item HPP diperbarui':'Item HPP tersimpan');
+  if(again){
+    openHppModal(s.id);          // buka lagi, produk yang sama, kolom isian kosong
+    if(RENDERERS[currentPage]) RENDERERS[currentPage]();
+  } else {
+    closeGenericModal();
+    RENDERERS[currentPage]();
+  }
+}
+async function deleteHpp(id){
+  if(!confirm('Hapus item HPP ini?')) return;
+  hppItems=hppItems.filter(h=>h.id!=id);
+  await saveKey(KEYS.hpp, hppItems);
+  RENDERERS[currentPage]();
+  showToast('Item HPP dihapus');
+}
+
+let hppRange={from:'',to:''};
+function setHppRange(){
+  hppRange.from=document.getElementById('hrFrom').value;
+  hppRange.to=document.getElementById('hrTo').value;
+  renderLaporanHpp();
+}
+function renderLaporanHpp(){
+  const inRange=s=>(!hppRange.from||s.date>=hppRange.from)&&(!hppRange.to||s.date<=hppRange.to);
+  const rows=sales.filter(inRange).map(s=>{
+    const p=productById(s.productId), h=saleHPP(s), rev=s.qty*s.price, laba=rev-h.value;
+    return {id:s.id, date:s.date, _sortDate:new Date(s.date).getTime(), invoiceNo:s.invoiceNo||'', product:p?p.name:'(produk dihapus)', cat:p?p.cat:'-',
+            qty:s.qty, revenue:rev, hpp:h.value, mode:h.mode, laba, margin:rev?laba/rev*100:0};
+  });
+  const rev=rows.reduce((a,r)=>a+r.revenue,0), hpp=rows.reduce((a,r)=>a+r.hpp,0), laba=rev-hpp;
+  const nRinci=rows.filter(r=>r.mode==='rinci').length;
+  // rekap per kategori HPP (hanya dari item rinci, sesuai periode)
+  const ids=new Set(rows.map(r=>r.id));
+  const byCat={};
+  hppItems.filter(h=>ids.has(h.saleId)).forEach(h=>{ (byCat[h.cat]=byCat[h.cat]||{cat:h.cat,n:0,total:0}); byCat[h.cat].n++; byCat[h.cat].total+=h.total; });
+  const catRows=Object.values(byCat), catSum=catRows.reduce((a,c)=>a+c.total,0);
+  // rekap per produk
+  const byProd={};
+  rows.forEach(r=>{ const b=(byProd[r.product]=byProd[r.product]||{product:r.product,qty:0,revenue:0,hpp:0}); b.qty+=r.qty; b.revenue+=r.revenue; b.hpp+=r.hpp; });
+  const prodRows=Object.values(byProd).map(b=>({...b, laba:b.revenue-b.hpp, margin:b.revenue?(b.revenue-b.hpp)/b.revenue*100:0}));
+
+  document.getElementById('pageContent').innerHTML=`
+    <div class="card" style="padding:16px 20px">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="margin:0"><label>Dari tanggal</label><input type="date" id="hrFrom" value="${hppRange.from}" onchange="setHppRange()"></div>
+        <div class="field" style="margin:0"><label>Sampai tanggal</label><input type="date" id="hrTo" value="${hppRange.to}" onchange="setHppRange()"></div>
+        <button class="btn btn-outline" onclick="hppRange={from:'',to:''};renderLaporanHpp()">Semua Waktu</button>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="lbl">Total Pendapatan</div><div class="val">${rupiah(rev)}</div></div>
+      <div class="stat-card"><div class="lbl">Total HPP</div><div class="val">${rupiah(hpp)}</div></div>
+      <div class="stat-card ${laba>=0?'pos':'neg'}"><div class="lbl">Laba Kotor</div><div class="val">${rupiah(laba)}</div></div>
+      <div class="stat-card"><div class="lbl">Margin Kotor</div><div class="val">${rev?(laba/rev*100).toFixed(1):0}%</div></div>
+    </div>
+    <div class="hint" style="margin:-4px 0 16px">${nRinci} dari ${rows.length} penjualan memakai HPP rinci; sisanya memakai estimasi dari harga pokok master produk (ditandai “Estimasi”).</div>
+
+    <div class="card">
+      <h3>HPP per Kategori Biaya</h3>
+      <div id="dtHppCat"></div>
+    </div>
+    <div class="card">
+      <h3>HPP per Produk</h3>
+      <div id="dtHppProd"></div>
+    </div>
+    <div class="card">
+      <h3>HPP per Penjualan <span class="tag">${rows.length} TRANSAKSI</span></h3>
+      <div id="dtHppSale"></div>
+    </div>`;
+
+  renderDataTable({
+    containerId:'dtHppCat', filename:'hpp-per-kategori', title:'HPP per Kategori — CETAK.ID', defaultSort:'total', pageSize:8,
+    data:catRows.map((c,i)=>({id:i, ...c, pct:catSum?c.total/catSum*100:0})),
+    columns:[
+      {key:'cat', label:'Kategori'},
+      {key:'n', label:'Jumlah Item', align:'right'},
+      {key:'total', label:'Total HPP', align:'right', render:r=>`<b>${rupiah(r.total)}</b>`, exportValue:r=>r.total},
+      {key:'pct', label:'Porsi', align:'right', render:r=>`${r.pct.toFixed(1)}%`, exportValue:r=>r.pct.toFixed(1)+'%'},
+    ],
+  });
+  renderDataTable({
+    containerId:'dtHppProd', filename:'hpp-per-produk', title:'HPP per Produk — CETAK.ID', defaultSort:'laba', pageSize:8,
+    data:prodRows.map((b,i)=>({id:i, ...b})),
+    columns:[
+      {key:'product', label:'Produk'},
+      {key:'qty', label:'Qty', align:'right'},
+      {key:'revenue', label:'Pendapatan', align:'right', render:r=>rupiah(r.revenue), exportValue:r=>r.revenue},
+      {key:'hpp', label:'HPP', align:'right', render:r=>rupiah(r.hpp), exportValue:r=>r.hpp},
+      {key:'laba', label:'Laba Kotor', align:'right', render:r=>`<b style="color:${r.laba>=0?'var(--green)':'var(--red)'}">${rupiah(r.laba)}</b>`, exportValue:r=>r.laba},
+      {key:'margin', label:'Margin', align:'right', render:r=>`<span class="pill ${r.margin>=0?'green':'red'}">${r.margin.toFixed(0)}%</span>`, exportValue:r=>r.margin.toFixed(1)+'%'},
+    ],
+  });
+  renderDataTable({
+    containerId:'dtHppSale', filename:'hpp-per-penjualan', title:'HPP per Penjualan — CETAK.ID', defaultSort:'_sortDate',
+    data:rows,
+    columns:[
+      {key:'_sortDate', label:'Tanggal', render:r=>fmtDate(r.date), searchValue:r=>fmtDate(r.date)},
+      {key:'invoiceNo', label:'No. Invoice', render:r=>r.invoiceNo||'-'},
+      {key:'product', label:'Produk'},
+      {key:'qty', label:'Qty', align:'right'},
+      {key:'revenue', label:'Pendapatan', align:'right', render:r=>rupiah(r.revenue), exportValue:r=>r.revenue},
+      {key:'hpp', label:'HPP', align:'right', render:r=>rupiah(r.hpp), exportValue:r=>r.hpp},
+      {key:'mode', label:'Sumber', render:r=>`<span class="pill ${r.mode==='rinci'?'green':'orange'}">${r.mode==='rinci'?'Rinci':'Estimasi'}</span>`},
+      {key:'laba', label:'Laba Kotor', align:'right', render:r=>`<b style="color:${r.laba>=0?'var(--green)':'var(--red)'}">${rupiah(r.laba)}</b>`, exportValue:r=>r.laba},
+      {key:'margin', label:'Margin', align:'right', render:r=>`${r.margin.toFixed(0)}%`, exportValue:r=>r.margin.toFixed(1)+'%'},
+      {key:'aksi', label:'', sortable:false, exportSkip:true, render:r=>`<button class="btn btn-outline" style="padding:6px 12px;font-size:13px" onclick="openHppModal(${r.id})">${r.mode==='rinci'?'Edit HPP':'+ HPP'}</button>`},
+    ],
+  });
+}
+
 /* ============================================================
    INIT
    ============================================================ */
 const RENDERERS = {
+  hpp:renderHpp, laporanhpp:renderLaporanHpp,
   dashboard:renderDashboard, produk:renderProduk, penjualan:renderPenjualan,
   pembelian:renderPembelian, biaya:renderBiaya, invoice:renderInvoicePage, pelanggan:renderPelanggan,
   pekerjaan:renderPekerjaan, usaha:renderUsaha, pembayaran:renderPembayaran, labarugi:renderLabaRugi,
@@ -1970,7 +2219,7 @@ const RENDERERS = {
   // ringan: auto-refresh halaman ringkasan (read-only) supaya order dari toko ikut muncul
   if(hasStorage){
     setInterval(async()=>{
-      if(currentPage==='dashboard' || currentPage==='labarugi'){
+      if(currentPage==='dashboard' || currentPage==='labarugi' || currentPage==='laporanhpp'){
         await loadAll();
         RENDERERS[currentPage]();
       }
