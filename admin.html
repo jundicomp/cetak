@@ -972,8 +972,12 @@ function renderSaleTable(){
     filename:'rekap-penjualan',
     title:'Rekap Penjualan — CETAK.ID',
     defaultSort:'date', 
-    data: sales.map(s=>({...s, _sortDate:new Date(s.date).getTime(), _total:s.qty*s.price, _productName:(productById(s.productId)||{}).name||'(produk dihapus)', _hpp:saleHPP(s).value, _hppMode:saleHPP(s).mode})),
+    data: sales.map(s=>({...s, _sortDate:new Date(s.date).getTime(), _total:s.qty*s.price, _productName:(productById(s.productId)||{}).name||'(produk dihapus)', _hpp:saleHPP(s).value, _hppMode:saleHPP(s).mode, _hppN:saleHPP(s).n})),
     columns:[
+      {key:'_hppMode', label:'HPP', align:'center', exportValue:r=>r._hppMode==='rinci'?'Sudah':'Belum', searchValue:r=>r._hppMode==='rinci'?'sudah hpp':'belum hpp',
+        render:r=>r._hppMode==='rinci'
+          ? `<span title="HPP sudah diisi (${r._hppN} item)" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:700">✓</span>`
+          : `<span title="HPP belum diisi (memakai estimasi)" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1.5px dashed #BDBDBD;color:#BDBDBD;font-size:12px">•</span>`},
       {key:'_sortDate', label:'Tanggal', render:r=>fmtDate(r.date), searchValue:r=>fmtDate(r.date)},
       {key:'invoiceNo', label:'No. Invoice', render:r=>r.invoiceNo?`<span class="pill green" style="cursor:pointer" onclick="goToInvoiceAndView('${r.invoiceNo}')">${r.invoiceNo}</span>`:'-'},
       {key:'_productName', label:'Produk'},
@@ -2050,13 +2054,25 @@ function openHppModal(saleId, hppId){
   const sid = h ? h.saleId : saleId;
   hppEditId = null;
   const list=[...sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  // dibuka dari baris penjualan / item HPP → terkunci ke invoice itu, tanpa pilihan lain
+  const lockedSale = sid ? sales.find(x=>x.id==sid) : null;
+  const locked = !!lockedSale;
   openModal('Input HPP Produk Terjual', `
+    ${locked ? `
+    <div class="field" style="margin-bottom:14px"><label>Produk yang Terjual</label>
+      <input type="hidden" id="hpSale" value="${lockedSale.id}">
+      <div style="border:1px solid var(--line);background:#F5F5F5;border-radius:var(--radius-sm);padding:11px 14px;font-size:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <span class="pill green">${lockedSale.invoiceNo||'tanpa invoice'}</span>
+        <b>${(productById(lockedSale.productId)||{}).name||'(produk dihapus)'}</b>
+        <span style="color:var(--ink-soft)">${lockedSale.qty} ${(productById(lockedSale.productId)||{}).unit||''} · ${fmtDate(lockedSale.date)}${lockedSale.buyer?' · '+lockedSale.buyer:''}</span>
+      </div>
+    </div>` : `
     <div class="field" style="margin-bottom:14px"><label>Produk yang Terjual</label>
       <select id="hpSale" onchange="hppEditId=null;hppResetRow();hppModalRender()">
         <option value="">— pilih penjualan —</option>
-        ${list.map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${saleLabel(s)}</option>`).join('')}
+        ${list.map(s=>`<option value="${s.id}">${saleLabel(s)}</option>`).join('')}
       </select>
-    </div>
+    </div>`}
     <form id="hppForm" class="hpp-row" onsubmit="event.preventDefault();addHppItem()">
       <div class="field hr-desc"><label>Uraian</label><input type="text" id="hpDesc" placeholder="Contoh: Art Carton 260gsm 2 rim" required></div>
       <div class="field"><label>Kategori</label><select id="hpCat">${HPP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
