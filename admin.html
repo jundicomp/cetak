@@ -174,6 +174,12 @@ th.amt{text-align:right;}
   background:var(--bg);border-radius:var(--radius);max-width:640px;width:100%;
   box-shadow:0 24px 60px rgba(0,0,0,.28);animation:modalIn .18s ease-out;
 }
+.act-row{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}
+.act-btn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--bg);border-radius:8px;color:var(--ink);cursor:pointer;padding:0;transition:.15s}
+.act-btn:hover{background:var(--orange-soft);border-color:var(--orange);color:var(--orange-dark)}
+.act-btn.on{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.act-btn.danger:hover{background:#FEE4E2;border-color:var(--red);color:var(--red)}
+.act-btn:disabled{opacity:.35;cursor:not-allowed;background:var(--bg);border-color:var(--line);color:var(--ink)}
 /* form HPP satu baris */
 .hpp-row{display:grid;grid-template-columns:2.4fr 1.4fr .8fr .9fr 1.1fr 1.2fr auto;gap:10px;align-items:end;}
 .hpp-row .field{margin-bottom:0;min-width:0;}
@@ -966,6 +972,46 @@ function renderPenjualan(){
   `;
   renderSaleTable();
 }
+const _svg=(d)=>`<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ACT_ICONS={
+  view:_svg('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'),
+  edit:_svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  hpp:_svg(ICONS.calc),
+  del:_svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
+};
+function openSaleEditModal(id){
+  const x=sales.find(v=>v.id==id); if(!x) return;
+  openModal('Edit Penjualan'+(x.invoiceNo?' — '+x.invoiceNo:''), `
+    <form id="saleEditForm" onsubmit="event.preventDefault();submitSaleEdit(${id})">
+      <div class="form-grid">
+        <div class="field"><label>Tanggal</label><input type="date" id="seDate" value="${x.date}" required></div>
+        <div class="field"><label>Pembeli</label><input type="text" id="seBuyer" value="${String(x.buyer||'').replace(/"/g,'&quot;')}"></div>
+        <div class="field full"><label>Produk</label><select id="seProd">${products.map(p=>`<option value="${p.id}" ${p.id==x.productId?'selected':''}>${p.name}</option>`).join('')}${productById(x.productId)?'':`<option value="${x.productId}" selected>(produk dihapus)</option>`}</select></div>
+        <div class="field"><label>Qty</label><input type="number" id="seQty" min="0.01" step="0.01" value="${x.qty}" required></div>
+        <div class="field"><label>Harga Satuan (Rp)</label><input type="number" id="sePrice" min="0" value="${x.price}" required></div>
+        <div class="field full"><label>Catatan</label><input type="text" id="seNote" value="${String(x.note||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="hint">Perubahan ini hanya memperbaiki catatan di Rekap Penjualan (dan rincian HPP terkait). Isi invoice yang sudah dibuat tidak ikut berubah.</div>
+    </form>`, `
+    <button class="btn btn-outline" onclick="closeGenericModal()">Batal</button>
+    <button class="btn btn-primary" onclick="if(document.getElementById('saleEditForm').reportValidity())document.getElementById('saleEditForm').requestSubmit()">Simpan Perubahan</button>`);
+}
+async function submitSaleEdit(id){
+  const x=sales.find(v=>v.id==id); if(!x) return;
+  x.date=document.getElementById('seDate').value;
+  x.buyer=document.getElementById('seBuyer').value.trim();
+  x.productId=parseInt(document.getElementById('seProd').value)||x.productId;
+  x.qty=parseFloat(document.getElementById('seQty').value)||0;
+  x.price=parseFloat(document.getElementById('sePrice').value)||0;
+  x.note=document.getElementById('seNote').value.trim();
+  const linked=hppItemsOf(id);
+  linked.forEach(h=>{ h.date=x.date; h.productId=x.productId; });  // jaga rincian HPP tetap sinkron dengan penjualannya
+  closeGenericModal();
+  renderPenjualan();
+  await saveKey(KEYS.sales, sales);
+  if(linked.length) await saveKey(KEYS.hpp, hppItems);
+  showToast('Penjualan diperbarui');
+}
 function renderSaleTable(){
   renderDataTable({
     containerId:'dtPenjualan',
@@ -986,7 +1032,12 @@ function renderSaleTable(){
       {key:'price', label:'Harga', align:'right', render:r=>rupiah(r.price), exportValue:r=>r.price},
       {key:'_total', label:'Total', align:'right', render:r=>`<b>${rupiah(r._total)}</b>`, exportValue:r=>r._total},
       {key:'_hpp', label:'HPP', align:'right', render:r=>r._hppMode==='rinci'?rupiah(r._hpp):`<span style="color:var(--ink-soft)">~${rupiah(r._hpp)}</span>`, exportValue:r=>r._hpp},
-      {key:'aksi', label:'', sortable:false, exportSkip:true, render:r=>`<button class="btn btn-outline" style="padding:6px 12px;font-size:13px" onclick="openHppModal(${r.id})">${r._hppMode==='rinci'?'Edit HPP':'+ HPP'}</button> <button class="btn-danger-text" onclick="deleteSale(${r.id})">Hapus</button>`},
+      {key:'aksi', label:'Aksi', sortable:false, exportSkip:true, render:r=>`<div class="act-row">
+        <button class="act-btn" title="${r.invoiceNo?'Lihat invoice':'Tidak ada invoice'}" ${r.invoiceNo?'':'disabled'} onclick="goToInvoiceAndView('${r.invoiceNo}')">${ACT_ICONS.view}</button>
+        <button class="act-btn" title="Edit penjualan" onclick="openSaleEditModal(${r.id})">${ACT_ICONS.edit}</button>
+        <button class="act-btn ${r._hppMode==='rinci'?'on':''}" title="${r._hppMode==='rinci'?'Edit HPP':'Isi HPP'}" onclick="openHppModal(${r.id})">${ACT_ICONS.hpp}</button>
+        <button class="act-btn danger" title="Hapus penjualan" onclick="deleteSale(${r.id})">${ACT_ICONS.del}</button>
+      </div>`},
     ],
   });
 }
