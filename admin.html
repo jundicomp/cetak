@@ -174,6 +174,15 @@ th.amt{text-align:right;}
   background:var(--bg);border-radius:var(--radius);max-width:640px;width:100%;
   box-shadow:0 24px 60px rgba(0,0,0,.28);animation:modalIn .18s ease-out;
 }
+/* form HPP satu baris */
+.hpp-row{display:grid;grid-template-columns:2.4fr 1.4fr .8fr .9fr 1.1fr 1.2fr auto;gap:10px;align-items:end;}
+.hpp-row .field{margin-bottom:0;min-width:0;}
+.hpp-row .hr-btn button{white-space:nowrap;padding:10px 16px;}
+@media (max-width:820px){
+  .hpp-row{grid-template-columns:1fr 1fr 1fr;}
+  .hpp-row .hr-desc{grid-column:1/-1;}
+  .hpp-row .hr-btn{grid-column:1/-1;}
+}
 @keyframes modalIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .modal-box-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
 .modal-box-head h3{margin:0;font-size:16px;}
@@ -2025,85 +2034,155 @@ function renderHpp(){
     ],
   });
 }
-function hppSaleInfo(){
-  const sel=document.getElementById('hpSale'); const box=document.getElementById('hpInfo');
-  if(!sel||!box) return;
-  const s=sales.find(x=>x.id==sel.value);
-  if(!s){ box.innerHTML=''; return; }
-  const rev=s.qty*s.price, h=saleHPP(s), laba=rev-h.value;
-  box.innerHTML=`Pendapatan <b>${rupiah(rev)}</b> · HPP saat ini <b>${rupiah(h.value)}</b> ${h.mode==='rinci'?'('+h.n+' item)':'(estimasi)'} · Laba kotor <b style="color:${laba>=0?'var(--green)':'var(--red)'}">${rupiah(laba)}</b>`;
-}
+let hppEditId=null, hppBusy=false;
 function hppCalcTotal(){
   const q=parseFloat(document.getElementById('hpQty').value)||0;
   const pr=parseFloat(document.getElementById('hpPrice').value)||0;
   document.getElementById('hpTotal').value = rupiah(q*pr);
 }
+function hppCurrentSale(){ return sales.find(x=>x.id==document.getElementById('hpSale').value); }
+/* Modal Input HPP: form 1 baris → Enter → masuk ke tabel di bawahnya → ringkasan laba.
+   Setiap Enter langsung tersimpan ke sheet "HPP" dan tertaut ke penjualan (saleId),
+   jadi riwayat HPP tiap order tetap utuh walau produknya dipesan berulang kali. */
 function openHppModal(saleId, hppId){
   if(!sales.length){ showToast('Belum ada penjualan untuk diberi HPP'); return; }
   const h = hppId ? hppItems.find(x=>x.id==hppId) : null;
   const sid = h ? h.saleId : saleId;
+  hppEditId = null;
   const list=[...sales].sort((a,b)=>new Date(b.date)-new Date(a.date));
-  openModal(h?'Edit Item HPP':'Input HPP Produk Terjual', `
-    <form id="hppForm" onsubmit="event.preventDefault();saveHpp(false)">
-      <div class="form-grid">
-        <div class="field full"><label>Produk yang Terjual</label>
-          <select id="hpSale" onchange="hppSaleInfo()" required ${h?'disabled':''}>
-            <option value="">— pilih penjualan —</option>
-            ${list.map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${saleLabel(s)}</option>`).join('')}
-          </select>
-          <div class="hint" id="hpInfo" style="margin-top:8px"></div>
-        </div>
-        <div class="field full"><label>Uraian</label><input type="text" id="hpDesc" placeholder="Contoh: Art Carton 260gsm 2 rim" value="${h?String(h.desc).replace(/"/g,'&quot;'):''}" required></div>
-        <div class="field"><label>Kategori</label><select id="hpCat">${HPP_CATS.map(c=>`<option ${h&&h.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
-        <div class="field"><label>Satuan</label><input type="text" id="hpUnit" placeholder="rim / jam / lembar" value="${h?h.unit||'':''}" required></div>
-        <div class="field"><label>Jumlah</label><input type="number" id="hpQty" min="0.01" step="0.01" value="${h?h.qty:1}" oninput="hppCalcTotal()" required></div>
-        <div class="field"><label>Harga (Rp)</label><input type="number" id="hpPrice" min="0" value="${h?h.price:''}" oninput="hppCalcTotal()" required></div>
-        <div class="field full"><label>Total</label><input type="text" id="hpTotal" readonly style="background:#F5F5F5;font-weight:700"></div>
-      </div>
-      <input type="hidden" id="hpEditId" value="${h?h.id:''}">
+  openModal('Input HPP Produk Terjual', `
+    <div class="field" style="margin-bottom:14px"><label>Produk yang Terjual</label>
+      <select id="hpSale" onchange="hppEditId=null;hppResetRow();hppModalRender()">
+        <option value="">— pilih penjualan —</option>
+        ${list.map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${saleLabel(s)}</option>`).join('')}
+      </select>
+    </div>
+    <form id="hppForm" class="hpp-row" onsubmit="event.preventDefault();addHppItem()">
+      <div class="field hr-desc"><label>Uraian</label><input type="text" id="hpDesc" placeholder="Contoh: Art Carton 260gsm 2 rim" required></div>
+      <div class="field"><label>Kategori</label><select id="hpCat">${HPP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Jumlah</label><input type="number" id="hpQty" min="0.01" step="0.01" value="1" oninput="hppCalcTotal()" required></div>
+      <div class="field"><label>Satuan</label><input type="text" id="hpUnit" placeholder="rim / jam" required></div>
+      <div class="field"><label>Harga (Rp)</label><input type="number" id="hpPrice" min="0" oninput="hppCalcTotal()" required></div>
+      <div class="field"><label>Total</label><input type="text" id="hpTotal" readonly tabindex="-1" style="background:#F5F5F5;font-weight:700"></div>
+      <div class="field hr-btn"><label>&nbsp;</label><button type="submit" class="btn btn-primary" id="hpBtn" style="width:100%">+ Tambah</button></div>
     </form>
-  `, `
-    <button class="btn btn-outline" onclick="closeGenericModal()">Batal</button>
-    ${h?'':`<button class="btn btn-outline" onclick="saveHpp(true)">Simpan &amp; Tambah Lagi</button>`}
-    <button class="btn btn-primary" onclick="saveHpp(false)">Simpan</button>
-  `);
-  hppCalcTotal(); hppSaleInfo();
+    <div class="hint" style="margin:2px 0 14px">Tekan <b>Enter</b> untuk memasukkan ke tabel di bawah. Data langsung tersimpan.</div>
+    <div id="hppCopyBox"></div>
+    <div id="hppModalTable"></div>
+  `, `<button class="btn btn-primary" onclick="closeGenericModal()">Selesai</button>`);
+  document.querySelector('#modalContainer .modal-box').style.maxWidth='1040px';
+  hppCalcTotal(); hppModalRender();
+  setTimeout(()=>{ const el=document.getElementById(sid?'hpDesc':'hpSale'); if(el) el.focus(); },50);
+  if(h) hppLoadEdit(h.id);
 }
-async function saveHpp(again){
-  const form=document.getElementById('hppForm');
-  if(!form.reportValidity()) return;
-  const editId=document.getElementById('hpEditId').value;
-  const saleId=parseInt(document.getElementById('hpSale').value)||(editId?hppItems.find(x=>x.id==editId).saleId:0);
-  const s=sales.find(x=>x.id==saleId);
-  if(!s){ showToast('Pilih produk yang terjual dulu'); return; }
+function hppResetRow(){
+  hppEditId=null;
+  ['hpDesc','hpUnit','hpPrice'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('hpQty').value=1;
+  document.getElementById('hpBtn').textContent='+ Tambah';
+  hppCalcTotal();
+}
+function hppLoadEdit(id){
+  const h=hppItems.find(x=>x.id==id); if(!h) return;
+  hppEditId=id;
+  document.getElementById('hpDesc').value=h.desc;
+  document.getElementById('hpCat').value=h.cat;
+  document.getElementById('hpQty').value=h.qty;
+  document.getElementById('hpUnit').value=h.unit||'';
+  document.getElementById('hpPrice').value=h.price;
+  document.getElementById('hpBtn').textContent='Update';
+  hppCalcTotal(); hppModalRender();
+  document.getElementById('hpDesc').focus();
+}
+function hppModalRender(){
+  const box=document.getElementById('hppModalTable'); if(!box) return;
+  const s=hppCurrentSale();
+  const copyBox=document.getElementById('hppCopyBox');
+  if(!s){ box.innerHTML='<div class="hint" style="padding:14px 0">Pilih produk yang terjual terlebih dahulu.</div>'; copyBox.innerHTML=''; return; }
+  const items=hppItemsOf(s.id);
+  const totalHpp=items.reduce((a,h)=>a+h.total,0);
+  const jual=s.qty*s.price, laba=jual-totalHpp, pct=jual?laba/jual*100:0;
+  const prod=productById(s.productId);
+  // order sebelumnya untuk produk yang sama (order berulang) yang sudah punya rincian HPP
+  const prev=sales.filter(x=>x.id!==s.id && x.productId==s.productId && hppItemsOf(x.id).length)
+                  .sort((a,b)=>new Date(b.date)-new Date(a.date));
+  copyBox.innerHTML = prev.length ? `
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--orange-soft);border-radius:var(--radius-sm)">
+      <span style="font-size:13.5px"><b>Order berulang?</b> Salin rincian HPP dari order sebelumnya:</span>
+      <select id="hpCopySrc" style="flex:1;min-width:200px;border:1px solid var(--line);padding:8px 10px;border-radius:var(--radius-sm);font-size:13.5px;background:var(--bg)">
+        ${prev.map(x=>`<option value="${x.id}">${fmtDate(x.date)} · ${x.invoiceNo||'-'} · ${x.qty} ${prod?prod.unit:''} · HPP ${rupiah(saleHPP(x).value)}</option>`).join('')}
+      </select>
+      <button type="button" class="btn btn-outline" onclick="copyHppFrom()">Salin</button>
+    </div>` : '';
+  box.innerHTML=`
+    <div class="table-wrap"><table>
+      <thead><tr><th style="width:44px">No</th><th>Uraian</th><th>Kategori</th><th style="text-align:right">Jumlah</th><th style="text-align:right">Harga</th><th style="text-align:right">Total</th><th></th></tr></thead>
+      <tbody>
+        ${items.length?items.map((h,i)=>`
+          <tr ${h.id==hppEditId?'style="outline:2px solid var(--orange);outline-offset:-2px"':''}>
+            <td>${i+1}</td><td>${h.desc}</td><td><span class="pill gray">${h.cat}</span></td>
+            <td style="text-align:right">${h.qty} ${h.unit||''}</td>
+            <td style="text-align:right">${rupiah(h.price)}</td>
+            <td style="text-align:right"><b>${rupiah(h.total)}</b></td>
+            <td style="white-space:nowrap;text-align:right"><button class="btn btn-outline" style="padding:5px 11px;font-size:13px" onclick="hppLoadEdit(${h.id})">Edit</button> <button class="btn-danger-text" onclick="deleteHpp(${h.id})">Hapus</button></td>
+          </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:22px">Belum ada item HPP untuk penjualan ini.</td></tr>`}
+        <tr class="footrow"><td colspan="5" style="text-align:right">Total HPP</td><td style="text-align:right">${rupiah(totalHpp)}</td><td></td></tr>
+      </tbody>
+    </table></div>
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:16px">
+      <div class="stat-card" style="margin:0"><div class="lbl">Harga Jual (${s.qty} × ${rupiah(s.price)})</div><div class="val" style="font-size:18px">${rupiah(jual)}</div></div>
+      <div class="stat-card" style="margin:0"><div class="lbl">HPP ${items.length?'':'(belum diisi)'}</div><div class="val" style="font-size:18px">${rupiah(totalHpp)}</div></div>
+      <div class="stat-card ${laba>=0?'pos':'neg'}" style="margin:0"><div class="lbl">Laba (Jual − HPP)</div><div class="val" style="font-size:18px">${rupiah(laba)}</div></div>
+      <div class="stat-card ${laba>=0?'pos':'neg'}" style="margin:0"><div class="lbl">Persentase Laba</div><div class="val" style="font-size:18px">${pct.toFixed(1)}%</div></div>
+    </div>`;
+}
+async function addHppItem(){
+  if(hppBusy) return;
+  const s=hppCurrentSale();
+  if(!s){ showToast('Pilih produk yang terjual dulu'); document.getElementById('hpSale').focus(); return; }
   const qty=parseFloat(document.getElementById('hpQty').value)||0;
   const price=parseFloat(document.getElementById('hpPrice').value)||0;
   const row={
-    id: editId?parseInt(editId):nextId(),
+    id: hppEditId||nextId(),
     saleId:s.id, invoiceNo:s.invoiceNo||'', date:s.date, productId:s.productId,
     desc:document.getElementById('hpDesc').value.trim(),
     cat:document.getElementById('hpCat').value,
     qty, unit:document.getElementById('hpUnit').value.trim(), price, total:qty*price,
   };
-  if(editId){
-    hppItems=hppItems.map(h=>h.id==row.id?row:h);
-    await saveKey(KEYS.hpp, hppItems);
-  } else {
-    hppItems.push(row);
-    await appendKey(KEYS.hpp, [row]);
-  }
-  showToast(editId?'Item HPP diperbarui':'Item HPP tersimpan');
-  if(again){
-    openHppModal(s.id);          // buka lagi, produk yang sama, kolom isian kosong
-    if(RENDERERS[currentPage]) RENDERERS[currentPage]();
-  } else {
-    closeGenericModal();
-    RENDERERS[currentPage]();
-  }
+  hppBusy=true;
+  try{
+    if(hppEditId){
+      hppItems=hppItems.map(h=>h.id==row.id?row:h);
+      hppModalRender();
+      await saveKey(KEYS.hpp, hppItems);
+    } else {
+      hppItems.push(row);
+      hppModalRender();
+      await appendKey(KEYS.hpp, [row]);
+    }
+  } finally { hppBusy=false; }
+  const keepCat=row.cat;
+  hppResetRow();
+  document.getElementById('hpCat').value=keepCat;
+  hppModalRender();
+  if(RENDERERS[currentPage]) RENDERERS[currentPage]();
+  document.getElementById('hpDesc').focus();
+}
+async function copyHppFrom(){
+  const s=hppCurrentSale(); const src=document.getElementById('hpCopySrc').value;
+  if(!s||!src) return;
+  const rows=hppItemsOf(parseInt(src)).map(h=>({...h, id:nextId(), saleId:s.id, invoiceNo:s.invoiceNo||'', date:s.date, productId:s.productId}));
+  hppItems.push(...rows);
+  hppModalRender();
+  await appendKey(KEYS.hpp, rows);
+  showToast(rows.length+' item HPP disalin');
+  if(RENDERERS[currentPage]) RENDERERS[currentPage]();
 }
 async function deleteHpp(id){
   if(!confirm('Hapus item HPP ini?')) return;
   hppItems=hppItems.filter(h=>h.id!=id);
+  if(hppEditId==id) hppResetRow();
+  if(document.getElementById('hppModalTable')) hppModalRender();
   await saveKey(KEYS.hpp, hppItems);
   RENDERERS[currentPage]();
   showToast('Item HPP dihapus');
