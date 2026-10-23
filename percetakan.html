@@ -269,6 +269,8 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 40px;b
   background:var(--white);border-radius:var(--radius);box-shadow:0 2px 14px rgba(0,0,0,.07);
   width:100%;max-width:760px;margin:0 auto;padding:24px 28px;box-sizing:border-box;
   aspect-ratio:210/148;
+  display:flex;flex-direction:column;
+  padding-bottom:2.38%;   /* ±0,5 cm dari tepi bawah kertas A5 (210mm lebar) */
 }
 .ledger-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;padding-bottom:14px;border-bottom:2px dashed var(--line);margin-bottom:14px;}
 .ledger-brand{display:flex;gap:14px;align-items:flex-start;}
@@ -287,7 +289,7 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 40px;b
 .ledger-table thead th.no{width:34px;text-align:center;}
 .ledger-table thead th.qty{width:60px;text-align:center;}
 .ledger-table thead th.harga,.ledger-table thead th.jumlah{text-align:right;}
-.ledger-table td{border:1px solid var(--line);padding:6px 8px;vertical-align:top;height:20px;}
+.ledger-table td{border:1px solid var(--line);padding:6px 8px;vertical-align:top;height:34px;}
 .ledger-table td.no{text-align:center;width:34px;color:var(--ink-soft);}
 .ledger-table td.qty{text-align:center;width:60px;}
 .ledger-table td.harga,.ledger-table td.jumlah{text-align:right;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
@@ -300,9 +302,10 @@ footer{border-top:1px solid var(--line);margin-top:20px;padding:44px 24px 40px;b
 .ledger-totals .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);}
 .ledger-totals .row.grand{border-bottom:none;border-top:2px solid var(--ink);margin-top:2px;padding-top:8px;}
 .ledger-totals .row.grand b{color:var(--spot-red);font-size:15px;}
-.ledger-sign{display:flex;justify-content:space-between;margin-top:30px;gap:20px;text-align:center;}
+.ledger-sign{display:flex;justify-content:space-between;margin-top:auto;padding-top:26px;gap:20px;text-align:center;}
 .ledger-sign-box{width:180px;}
-.ledger-sign-box .lbl{font-weight:700;margin-bottom:56px;display:block;}
+.ledger-sign-box .lbl{font-weight:700;margin-bottom:10px;display:block;}
+.ledger-sign-box .sp{height:64px;}
 .ledger-sign-box .stamp{width:60px;height:60px;object-fit:contain;margin:0 auto 4px;display:block;opacity:.92;}
 .ledger-sign-box .name{font-weight:700;font-style:italic;border-top:1px dotted var(--ink);padding-top:5px;display:inline-block;min-width:150px;}
 
@@ -1122,11 +1125,12 @@ function renderInvoice(){
     </tr>`;
     n++;
   });
-  for(let i=0;i<1;i++){
+  const blanks = n<3 ? 3-n : 1;   // minimal 3 baris rincian (sisanya kosong); kalau item sudah ≥3, cukup 1 baris kosong
+  for(let i=0;i<blanks;i++){
     rows += `<tr><td class="no">&nbsp;</td><td>&nbsp;</td><td class="qty"></td><td class="harga"></td><td class="jumlah"></td></tr>`;
   }
 
-  const stampHtml = biz.stamp ? `<img class="stamp" src="${biz.stamp}" alt="cap">` : `<div style="height:60px"></div>`;
+  const stampHtml = biz.stamp ? `<img class="stamp" src="${biz.stamp}" alt="cap">` : `<div class="sp"></div>`;
 
   document.getElementById('invoicePrintArea').innerHTML = `
     <div class="ledger-head">
@@ -1169,6 +1173,7 @@ function renderInvoice(){
     <div class="ledger-sign">
       <div class="ledger-sign-box">
         <span class="lbl">Penerima</span>
+        <div class="sp"></div>
         <span class="name">&nbsp;</span>
       </div>
       <div class="ledger-sign-box">
