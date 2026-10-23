@@ -798,6 +798,7 @@ function openModal(title, bodyHtml, footHtml){
     </div>`;
 }
 function closeGenericModal(){
+  if(typeof ivDirty!=='undefined' && ivDirty){ ivDirty=false; loadAll(); }   // buang perubahan invoice yang belum disimpan
   document.getElementById('modalContainer').innerHTML='';
 }
 /* resize + compress an uploaded image file into a small base64 data URL
@@ -1228,7 +1229,7 @@ function renderInvoicePage(){
       <div class="stat-card"><div class="lbl">Total Nilai Invoice</div><div class="val" style="font-size:19px">${rupiah(totalVal)}</div></div>
       <div class="stat-card"><div class="lbl">Rata-rata Nilai</div><div class="val" style="font-size:19px">${rupiah(orders.length?totalVal/orders.length:0)}</div></div>
     </div>
-    <div class="hint" style="margin-bottom:16px">Semua invoice di sini dibuat otomatis dari checkout di halaman toko.</div>
+    <div class="hint" style="margin-bottom:16px">Invoice dibuat otomatis dari checkout di halaman toko. Klik nomor invoice untuk melihat, mengubah tanggal/status, atau mematikan cap bawaan.</div>
     <div class="card">
       <h3>Semua Invoice <span class="tag">${orders.length} INVOICE</span></h3>
       <div id="dtInvoice"></div>
@@ -1259,7 +1260,7 @@ async function viewInvoiceDetail(invNo){
   openModal(`Invoice ${invNo}`, `
     <div class="form-grid">
       <div><span class="field-label">Pelanggan</span><p style="margin:4px 0 0;font-size:14px">${o.customerName}<br>${o.phone}<br>${o.address||''}</p></div>
-      <div><span class="field-label">Info Pesanan</span><p style="margin:4px 0 0;font-size:14px">${fmtDate(o.date)}<br>${o.paymentMethod}<br>${o.shippingMethod}</p></div>
+      <div><span class="field-label">Info Pesanan</span><p style="margin:4px 0 0;font-size:14px"><span id="ivDateText">${fmtDate(o.date)}</span><br>${o.paymentMethod}<br>${o.shippingMethod}</p></div>
     </div>
     ${o.note?`<div class="hint" style="margin:10px 0">Catatan: ${o.note}</div>`:''}
     <div class="table-wrap" style="margin-top:14px"><table>
@@ -1273,14 +1274,24 @@ async function viewInvoiceDetail(invNo){
       <div style="font-size:14px;color:var(--ink-soft)">Ongkos Kirim: ${rupiah(o.shippingCost||0)}</div>
       <div style="font-size:17px;font-weight:700;margin-top:4px">Total: <span class="mono">${rupiah(o.total)}</span></div>
     </div>
-    <div class="field" style="margin-top:18px"><label>Status Pesanan</label>
-      <select id="ivStatusSelect">${['Diproses','Selesai','Dibatalkan'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    <div class="form-grid" style="margin-top:18px">
+      <div class="field"><label>Status Pesanan</label>
+        <select id="ivStatusSelect">${['Diproses','Selesai','Dibatalkan'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Tanggal Invoice</label>
+        <input type="date" id="ivDate" value="${String(o.date).slice(0,10)}" onchange="ivEditChanged(${JSON.stringify(invNo).replace(/"/g,'&quot;')})">
+        <div class="hint">Bisa diisi tanggal mundur. Tanggal di Rekap Penjualan & HPP ikut menyesuaikan.</div>
+      </div>
+      <div class="field full">
+        <label style="display:flex;gap:9px;align-items:center;margin:0;cursor:pointer"><input type="checkbox" id="ivStamp" style="width:auto" ${(o.showStamp===false||/^false$/i.test(String(o.showStamp)))?'':'checked'} onchange="ivEditChanged(${JSON.stringify(invNo).replace(/"/g,'&quot;')})"> Tampilkan cap bawaan pada invoice</label>
+        <div class="hint">Hilangkan centang kalau invoice akan dicap basah — ruang untuk cap tetap disediakan.</div>
+      </div>
     </div>
   `, `
     <button class="btn btn-outline" onclick="closeGenericModal()">Tutup</button>
     <button class="btn btn-outline wa-btn" onclick='sendInvoiceToCustomerWA(${JSON.stringify(invNo)})'>💬 Kirim ke WA</button>
     <button class="btn btn-outline" onclick='downloadAdminInvoicePDF(${JSON.stringify(invNo)})'>⬇️ Download PDF</button>
-    <button class="btn btn-primary" onclick="updateInvoiceStatus('${invNo}')">Simpan Status</button>
+    <button class="btn btn-primary" onclick="updateInvoiceStatus('${invNo}')">Simpan Perubahan</button>
   `);
   prepareAdminInvoiceImage(o, items);
 }
@@ -1353,7 +1364,8 @@ function buildAdminInvoiceHtml(o, items){
   const bizCity = settingVal('biz_city','');
   const bizOwner = settingVal('biz_owner','');
   const logo = settingVal('logo_image','');
-  const stamp = settingVal('stamp_image','');
+  const stampOff = o.showStamp===false || /^false$/i.test(String(o.showStamp));
+  const stamp = stampOff ? '' : settingVal('stamp_image','');   // dimatikan per invoice → ruang kosong untuk cap basah
   const logoHtml = logo
     ? `<img src="${logo}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid #EBEBEB">`
     : `<div style="width:56px;height:56px;border-radius:10px;background:#FF6A00;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;font-size:24px;">${(bizName||'C').charAt(0)}</div>`;
@@ -1372,10 +1384,10 @@ function buildAdminInvoiceHtml(o, items){
   for(let i=0;i<1;i++){
     rows += `<tr><td style="border:1px solid #E9E9E9;padding:6px 8px;height:20px">&nbsp;</td><td style="border:1px solid #E9E9E9;"></td><td style="border:1px solid #E9E9E9;"></td><td style="border:1px solid #E9E9E9;"></td><td style="border:1px solid #E9E9E9;"></td></tr>`;
   }
-  const stampHtml = stamp ? `<img src="${stamp}" style="width:56px;height:56px;object-fit:contain;margin:0 auto 4px;display:block;opacity:.92">` : `<div style="height:52px"></div>`;
+  const stampHtml = stamp ? `<img src="${stamp}" style="width:56px;height:56px;object-fit:contain;margin:0 auto 4px;display:block;opacity:.92">` : `<div style="height:56px"></div>`;
 
   return `
-  <div style="width:760px;aspect-ratio:210/148;background:#fff;border:2px solid #141414;border-radius:12px;padding:26px 30px;font-family:Arial,sans-serif;color:#141414;box-sizing:border-box;">
+  <div style="width:760px;aspect-ratio:210/148;background:#fff;padding:26px 30px;font-family:Arial,sans-serif;color:#141414;box-sizing:border-box;">
     <div style="display:flex;justify-content:space-between;gap:16px;padding-bottom:14px;border-bottom:2px dashed #E9E9E9;margin-bottom:14px;">
       <div style="display:flex;gap:14px;align-items:flex-start;">
         ${logoHtml}
@@ -1501,15 +1513,40 @@ async function sendInvoiceToCustomerWA(invNo){
     captureEl.innerHTML='';
   }
 }
+let ivDirty=false;
+/* perubahan tanggal / cap langsung dipakai preview, WA & PDF; baru disimpan permanen saat klik "Simpan Perubahan" */
+function ivEditChanged(invNo){
+  const norm = x => String(x??'').trim();
+  const o = orders.find(x=>norm(x.invoiceNo)===norm(invNo)); if(!o) return;
+  const d=document.getElementById('ivDate').value;
+  if(d) o.date=d;
+  o.showStamp=document.getElementById('ivStamp').checked;
+  ivDirty=true;
+  const t=document.getElementById('ivDateText'); if(t) t.textContent=fmtDate(o.date);
+  prepareAdminInvoiceImage(o, sales.filter(x=>norm(x.invoiceNo)===norm(invNo)));
+}
 async function updateInvoiceStatus(invNo){
   const status=document.getElementById('ivStatusSelect').value;
   const norm = s => String(s??'').trim();
-  const idx=orders.findIndex(o=>norm(o.invoiceNo)===norm(invNo));
-  if(idx>-1) orders[idx].status=status;
-  await saveKey(KEYS.orders, orders);
+  const o=orders.find(x=>norm(x.invoiceNo)===norm(invNo));
+  if(!o){ showToast('Invoice tidak ditemukan'); return; }
+  const newDate=document.getElementById('ivDate').value || o.date;
+  const dateChanged = String(newDate)!==String(o.date) || ivDirty;
+  o.status=status; o.date=newDate;
+  o.showStamp=document.getElementById('ivStamp').checked;
+  // tanggal invoice dipakai juga oleh penjualan & rincian HPP dengan nomor invoice yang sama
+  const linkedSales=sales.filter(x=>norm(x.invoiceNo)===norm(invNo));
+  const salesChanged=linkedSales.some(x=>String(x.date)!==String(newDate));
+  linkedSales.forEach(x=>{ x.date=newDate; });
+  const linkedHpp=hppItems.filter(h=>norm(h.invoiceNo)===norm(invNo));
+  linkedHpp.forEach(h=>{ h.date=newDate; });
+  ivDirty=false;
   closeGenericModal();
   renderInvoicePage();
-  showToast('Status invoice diperbarui');
+  await saveKey(KEYS.orders, orders);
+  if(salesChanged) await saveKey(KEYS.sales, sales);
+  if(salesChanged && linkedHpp.length) await saveKey(KEYS.hpp, hppItems);
+  showToast('Invoice diperbarui');
 }
 
 
